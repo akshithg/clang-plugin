@@ -51,6 +51,13 @@ struct Kconfigs : public PPCallbacks {
         Prev, MacroNameTok.getLength() + NextToken->getLength() - 1, replace);
   }
 
+  void Else(SourceLocation Loc, SourceLocation IfLoc) {
+
+    SourceLocation Prev = Loc.getLocWithOffset(-1);
+
+    TheRewriter.ReplaceText(Prev, 5, "} else{");
+  }
+
   void Endif(SourceLocation Loc, SourceLocation IfLoc){
 
     SourceLocation Prev = Loc.getLocWithOffset(-1);

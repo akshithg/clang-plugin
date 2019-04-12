@@ -13,6 +13,8 @@ set_values(void)
     a = 5;
 #ifdef CONFIG_B
     b = 5;
+#else
+    b = 10;
 #endif
 }
 
