@@ -1,0 +1,1 @@
+# Sample Clang PreProcessor plugin
