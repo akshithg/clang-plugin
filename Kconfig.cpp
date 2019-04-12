@@ -2,28 +2,64 @@
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/CompilerInstance.h"
+#include "clang/Frontend/FrontendAction.h"
 #include "clang/Frontend/FrontendPluginRegistry.h"
+#include "clang/Lex/Lexer.h"
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
+#include "clang/Rewrite/Core/Rewriter.h"
+#include "clang/Rewrite/Frontend/Rewriters.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/raw_ostream.h"
+#include <algorithm>
+#include <string>
+#include <vector>
 
 using namespace clang;
+using namespace std;
 
 namespace {
 
 struct Kconfigs : public PPCallbacks {
 
-  Kconfigs(SourceManager &sm) {}
+  CompilerInstance &CI;
+  Rewriter TheRewriter;
+
+  Kconfigs(CompilerInstance &CI) : CI(CI) {
+    TheRewriter = Rewriter(CI.getSourceManager(), CI.getLangOpts());
+  }
 
   void Ifdef(SourceLocation Loc, const Token &MacroNameTok,
              const MacroDefinition &MD) {
-    llvm::outs() << "In Kconfigs::Ifdef";
+
+    // Prev token (#) loc
+    SourceLocation Prev = Loc.getLocWithOffset(-1);
+
+    // Next Token - ifdef "CONFIG_XYZ"
+    Optional<Token> NextToken =
+        Lexer::findNextToken(Loc, CI.getSourceManager(), CI.getLangOpts());
+
+    IdentifierInfo *II = MacroNameTok.getIdentifierInfo();
+
+    string replace;
+    replace+= "if( ";
+    replace+= II->getName();
+    replace+= " ){";
+
+    TheRewriter.ReplaceText(
+        Prev, MacroNameTok.getLength() + NextToken->getLength() - 1, replace);
   }
 
   void Endif(SourceLocation Loc, SourceLocation IfLoc){
-    llvm::outs() << "In Kconfigs::Endif";
+
+    SourceLocation Prev = Loc.getLocWithOffset(-1);
+
+    TheRewriter.ReplaceText(Prev, 6, "}");
+
+    const RewriteBuffer *RewriteBuf =
+        TheRewriter.getRewriteBufferFor(CI.getSourceManager().getMainFileID());
+    llvm::outs() << string(RewriteBuf->begin(), RewriteBuf->end());
   }
 };
 
@@ -43,7 +79,7 @@ class KconfigAction : public PluginASTAction {
 bool KconfigAction::BeginSourceFileAction(CompilerInstance &CI) {
   // llvm::outs() << "In KconfigAction::BeginSourceFileAction";
   Preprocessor &PP = CI.getPreprocessor();
-  PP.addPPCallbacks(llvm::make_unique<Kconfigs>(CI.getSourceManager()));
+  PP.addPPCallbacks(llvm::make_unique<Kconfigs>(CI));
   return true;
 }
 
