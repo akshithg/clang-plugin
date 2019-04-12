@@ -13,34 +13,43 @@ using namespace clang;
 
 namespace {
 
-class KconfigAction : public PluginASTAction {
+struct Kconfigs : public PPCallbacks {
 
+  Kconfigs(SourceManager &sm) {}
+
+  void Ifdef(SourceLocation Loc, const Token &MacroNameTok,
+             const MacroDefinition &MD) {
+    llvm::outs() << "In Kconfigs::Ifdef";
+  }
+
+  void Endif(SourceLocation Loc, SourceLocation IfLoc){
+    llvm::outs() << "In Kconfigs::Endif";
+  }
+};
+
+class KconfigAction : public PluginASTAction {
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  llvm::StringRef) override {
-
-    llvm::outs() << "In CreateASTConsumer";
-
+    // llvm::outs() << "In CreateASTConsumer";
     return llvm::make_unique<ASTConsumer>();
   }
 
-  bool BeginSourceFileAction(CompilerInstance &CI);
+  bool BeginSourceFileAction(CompilerInstance &CI) override;
 
   bool ParseArgs(const CompilerInstance &CI,
                  const std::vector<std::string> &args) override;
 };
 
 bool KconfigAction::BeginSourceFileAction(CompilerInstance &CI) {
-
-  llvm::outs() << "In KconfigAction::BeginSourceFileAction";
-
+  // llvm::outs() << "In KconfigAction::BeginSourceFileAction";
+  Preprocessor &PP = CI.getPreprocessor();
+  PP.addPPCallbacks(llvm::make_unique<Kconfigs>(CI.getSourceManager()));
   return true;
 }
 
 bool KconfigAction::ParseArgs(const CompilerInstance &,
                           const std::vector<std::string> &args) {
-
-  llvm::outs() << "In KconfigAction::ParseArgs";
-
+  // llvm::outs() << "In KconfigAction::ParseArgs";
   for (unsigned i = 0, e = args.size(); i != e; ++i)
     llvm::outs() << "Received arg: " << args[i] << "\n";
   return true;
